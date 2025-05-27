@@ -12,25 +12,23 @@ genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 # 기사 본문 추출 함수 (newspaper3k 제거 → BeautifulSoup 대체)
 def get_article_text(url):
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}  # 봇 우회
+        headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # 특정 div에서 기사 본문 추출 시도
-        possible_classes = ['article-body', 'news-body', 'view-content', 'article', 'text', 'art_text']
+        # 1. 이데일리 맞춤형 처리
+        edaily_body = soup.find('div', class_='newsBody')
+        if edaily_body:
+            paragraphs = edaily_body.find_all('p')
+            article_text = '\n'.join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 30])
+            if len(article_text) > 300:
+                return article_text[:5000]
 
-        for cls in possible_classes:
-            article_div = soup.find('div', class_=cls)
-            if article_div:
-                paragraphs = article_div.find_all('p')
-                text = '\n'.join([p.get_text() for p in paragraphs if len(p.get_text()) > 30])
-                if len(text) > 300:
-                    return text[:5000]
-
-        # fallback: 모든 p 태그에서 추출
+        # 2. 일반 뉴스 대비 fallback
         paragraphs = soup.find_all('p')
-        article_text = '\n'.join([p.get_text() for p in paragraphs if len(p.get_text()) > 50])
+        article_text = '\n'.join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 50])
         return article_text[:5000] if article_text else "본문 추출 실패: 본문 없음"
+
     except Exception as e:
         return f"본문 추출 실패: {e}"
 
