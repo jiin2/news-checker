@@ -1,0 +1,5 @@
+streamlit
+openai
+newspaper3k
+sentence-transformers
+google-generativeai
