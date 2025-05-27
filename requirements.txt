@@ -1,8 +1,6 @@
 streamlit
 openai
-newspaper3k
 sentence-transformers
 google-generativeai
-lxml
-cssselect
-nltk
+requests
+beautifulsoup4

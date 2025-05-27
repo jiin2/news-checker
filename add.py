@@ -1,5 +1,6 @@
 import streamlit as st
-from newspaper import Article
+import requests
+from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer, util
 import openai
 import google.generativeai as genai
@@ -7,6 +8,17 @@ import google.generativeai as genai
 # API 키는 .streamlit/secrets.toml에 저장하고 불러오기
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+# 기사 본문 추출 함수 (newspaper3k 제거 → BeautifulSoup 대체)
+def get_article_text(url):
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        paragraphs = soup.find_all('p')
+        article_text = '\n'.join([p.get_text() for p in paragraphs if len(p.get_text()) > 50])
+        return article_text[:5000]  # 최대 길이 제한
+    except Exception as e:
+        return f"본문 추출 실패: {e}"
 
 # 요약 함수 (Gemini)
 def summarize_text(text):
@@ -80,21 +92,19 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Streamlit 인터페이스 시작
 st.title("🧐 뉴스읽은척방지기")
-st.write("기사 제목이 본문과 어울리는지, 왜곡됐는지 GPT와 함께 분석해보자!")
+st.write("기사 제목이 본문과 어울리는지, 왜곡됐는지 AI와 함께 분석해보자!")
 
 url = st.text_input("뉴스 기사 URL을 입력하세요")
 
 if st.button("검사 시작") and url:
     try:
-        article = Article(url)
-        article.download()
-        article.parse()
-
-        title = article.title
-        text = article.text
+        title = "기사 제목 추출 실패"
+        text = get_article_text(url)
 
         body_summary = summarize_text(text)
-        embeddings = model.encode([title, body_summary], convert_to_tensor=True)
+        title_summary = summarize_text(title)
+
+        embeddings = model.encode([title_summary, body_summary], convert_to_tensor=True)
         similarity = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
 
         if similarity > 0.75:
